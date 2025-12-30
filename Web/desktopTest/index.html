@@ -1,0 +1,1388 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audioshare - 经典TabBar方案（方案一）</title>
+    <!-- <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"> -->
+    <!-- <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"> -->
+    <style>
+        :root {
+            --bg-primary: #F9FAFB;
+            --bg-card: #FFFFFF;
+            --text-primary: #111827;
+            --text-secondary: #6B7280;
+            --text-tertiary: #9CA3AF;
+            --accent-color: #0A59F7;
+            --border-color: #E5E7EB;
+            --tabbar-bg: #FFFFFF;
+            --success-color: #006400;
+            --danger-color: #EF4444;
+            --warning-color: #F59E0B;
+        }
+
+        [data-theme="dark"] {
+            --bg-primary: #020617;
+            --bg-card: #111827;
+            --text-primary: #F9FAFB;
+            --text-secondary: #9CA3AF;
+            --text-tertiary: #6B7280;
+            --accent-color: #38BDF8;
+            --border-color: #1F2937;
+            --tabbar-bg: #020617;
+            --success-color: #22C55E;
+            --danger-color: #EF4444;
+            --warning-color: #F59E0B;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            min-height: 100vh;
+            padding-bottom: 70px;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        .page-container {
+            padding: 16px;
+            padding-top: 24px;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        /* 页面切换动画 */
+        .page {
+            display: none;
+            opacity: 0;
+            transform: translateY(10px);
+            animation: fadeInPage 0.3s ease forwards;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        @keyframes fadeInPage {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* 标题样式 */
+        .page-title {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 4px;
+            color: var(--text-primary);
+        }
+
+        .page-subtitle {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 20px;
+        }
+
+        /* 卡片样式 - 借鉴SmartHome风格 */
+        .card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 12px;
+            transition: box-shadow 0.3s ease, transform 0.3s ease;
+        }
+
+        .card:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            transform: translateY(-2px);
+        }
+
+        /* 渐变提示卡片 */
+        .hint-card {
+            background: linear-gradient(135deg, rgba(10, 89, 247, 0.1) 0%, rgba(5, 150, 105, 0.1) 100%);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .hint-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #0A59F7 0%, #059669 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        /* 设备卡片 - 借鉴SmartHome DeviceCardView */
+        .device-card {
+            display: flex;
+            align-items: center;
+            height: 110px;
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .device-card:hover {
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+            transform: translateY(-2px);
+        }
+
+        .device-card .device-icon {
+            width: 76px;
+            height: 76px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #0A59F7 0%, #38BDF8 100%);
+            margin-right: 12px;
+            flex-shrink: 0;
+        }
+
+        .device-card .device-icon i {
+            font-size: 32px;
+            color: white;
+        }
+
+        .device-card .device-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .device-card .device-name {
+            font-size: 16px;
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .device-card .device-desc {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            margin-bottom: 8px;
+        }
+
+        /* 状态指示器 - 借鉴SmartHome */
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--success-color);
+            display: inline-block;
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            opacity: 0.5;
+        }
+
+        .status-offline {
+            background-color: var(--text-tertiary);
+        }
+
+        /* 空状态样式 */
+        .empty-state {
+            background-color: var(--bg-primary);
+            border: 2px dashed var(--border-color);
+            border-radius: 16px;
+            padding: 40px 20px;
+            text-align: center;
+            margin-bottom: 12px;
+        }
+
+        .empty-state i {
+            font-size: 48px;
+            color: var(--text-tertiary);
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .empty-state .empty-title {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .empty-state .empty-desc {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            margin-bottom: 16px;
+        }
+
+        /* 按钮样式 */
+        .btn {
+            padding: 8px 16px;
+            font-size: 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background-color: var(--bg-card);
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .btn:hover {
+            transform: scale(1.05);
+        }
+
+        .btn-primary {
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+        }
+
+        .btn-danger {
+            background-color: var(--danger-color);
+            color: white;
+            border: none;
+        }
+
+        .btn-success {
+            background-color: var(--success-color);
+            color: white;
+            border: none;
+        }
+
+        .btn-block {
+            width: 100%;
+            padding: 12px;
+            font-size: 14px;
+        }
+
+        /* TabBar样式 */
+        .tabbar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: var(--tabbar-bg);
+            border-top: 1px solid var(--border-color);
+            padding: 8px 0;
+            padding-bottom: calc(8px + env(safe-area-inset-bottom));
+            z-index: 1000;
+        }
+
+        .tabbar-inner {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        .tab-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: none;
+            background: none;
+            width: 33.33%;
+        }
+
+        .tab-item.active {
+            color: var(--accent-color);
+        }
+
+        .tab-item:not(.active) {
+            color: var(--text-secondary);
+            opacity: 0.7;
+        }
+
+        .tab-icon {
+            font-size: 20px;
+            margin-bottom: 2px;
+            transition: transform 0.2s ease, font-size 0.2s ease;
+        }
+
+        .tab-item.active .tab-icon {
+            font-size: 24px;
+            transform: scale(1.1);
+        }
+
+        .tab-label {
+            font-size: 10px;
+        }
+
+        /* 设置项样式 - 借鉴SmartHome SettingBarView */
+        .setting-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .setting-row:last-child {
+            border-bottom: none;
+        }
+
+        .setting-label {
+            font-size: 14px;
+            color: var(--text-primary);
+        }
+
+        .setting-value {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-right: 8px;
+        }
+
+        /* 功能项样式 - 借鉴SmartHome NavBarListView */
+        .function-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            border-bottom: 1px solid var(--border-color);
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .function-item:hover {
+            background-color: var(--bg-primary);
+        }
+
+        .function-item:last-child {
+            border-bottom: none;
+        }
+
+        .function-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #0A59F7 0%, #38BDF8 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 12px;
+            flex-shrink: 0;
+        }
+
+        .function-icon i {
+            color: white;
+            font-size: 16px;
+        }
+
+        /* 开关样式 */
+        .toggle-switch {
+            position: relative;
+            width: 44px;
+            height: 24px;
+            background-color: var(--border-color);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .toggle-switch.active {
+            background-color: var(--accent-color);
+        }
+
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background-color: white;
+            border-radius: 50%;
+            top: 2px;
+            left: 2px;
+            transition: transform 0.3s ease;
+        }
+
+        .toggle-switch.active::after {
+            transform: translateX(20px);
+        }
+
+        /* 刷新按钮动画 */
+        .refresh-icon {
+            transition: transform 0.5s ease;
+        }
+
+        .refresh-icon.spinning {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        /* 加载进度样式 */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 3000;
+            animation: fadeInOverlay 0.2s ease;
+        }
+
+        .loading-overlay.active {
+            display: flex;
+        }
+
+        .loading-content {
+            background-color: var(--bg-card);
+            padding: 32px 48px;
+            border-radius: 16px;
+            text-align: center;
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .loading-spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid var(--border-color);
+            border-top-color: var(--accent-color);
+            border-radius: 50%;
+            margin: 0 auto 16px;
+            animation: spin 1s linear infinite;
+        }
+
+        .loading-text {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .loading-progress {
+            font-size: 12px;
+            color: var(--text-tertiary);
+        }
+
+        /* 设备列表容器 */
+        .device-list {
+            display: none;
+        }
+
+        .device-list.active {
+            display: block;
+        }
+
+        /* ActionSheet样式 */
+        .action-sheet-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 2000;
+            display: none;
+            animation: fadeInOverlay 0.2s ease;
+        }
+
+        .action-sheet-overlay.active {
+            display: block;
+        }
+
+        @keyframes fadeInOverlay {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .action-sheet {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: var(--bg-card);
+            border-top: 1px solid var(--border-color);
+            border-radius: 16px 16px 0 0;
+            padding: 12px 0;
+            padding-bottom: calc(12px + env(safe-area-inset-bottom));
+            z-index: 2001;
+            transform: translateY(100%);
+            transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        .action-sheet.active {
+            transform: translateY(0);
+        }
+
+        .action-sheet-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-tertiary);
+            text-align: center;
+            padding: 8px 16px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .action-sheet-cancel {
+            text-align: center;
+            padding: 12px 16px;
+            border-top: 8px solid var(--border-color);
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            color: var(--accent-color);
+        }
+
+        .action-item {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 14px 16px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            color: var(--text-primary);
+            border-bottom: 1px solid var(--border-color);
+            transition: background-color 0.3s ease;
+        }
+
+        .action-item:last-of-type {
+            border-bottom: none;
+        }
+
+        .action-item:active {
+            background-color: var(--bg-primary);
+        }
+
+        /* 音源选择卡片 */
+        .audio-source-card {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background-color: var(--bg-card);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            flex: 1;
+            margin-right: 8px;
+        }
+
+        .audio-source-card:last-child {
+            margin-right: 0;
+        }
+
+        .audio-source-card:hover {
+            border-color: var(--accent-color);
+            background-color: rgba(10, 89, 247, 0.05);
+        }
+
+        .audio-source-card.active {
+            border-color: var(--accent-color);
+            background-color: rgba(10, 89, 247, 0.1);
+        }
+
+        .audio-source-card i {
+            font-size: 20px;
+            color: var(--accent-color);
+        }
+
+        /* 连接设备卡片 */
+        .connected-device {
+            background-color: var(--bg-primary);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 10px;
+        }
+
+        .connected-device .device-name {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+
+        .connected-device .device-info {
+            font-size: 11px;
+            color: var(--text-tertiary);
+        }
+    </style>
+</head>
+<body>
+    <!-- 播放器页面 -->
+    <div id="page-player" class="page active">
+        <div class="page-container">
+            <h1 class="page-title">播放器</h1>
+            <p class="page-subtitle">接收其他服务器音频</p>
+
+            <!-- 顶部提示卡片 -->
+            <div class="hint-card">
+                <div class="hint-icon">↓</div>
+                <div style="flex: 1;">
+                    <div style="font-size: 12px; color: var(--text-secondary);">接收其他服务器音频</div>
+                    <div style="font-size: 11px; color: var(--text-tertiary);">将当前设备作为"无线音箱"，从电脑或手机接收音频流。</div>
+                </div>
+                <button class="btn btn-primary">一键连接</button>
+            </div>
+
+            <!-- 最近连接 -->
+           <!-- <div class="card">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+                    <span style="font-size: 14px; font-weight: 600; color: var(--text-primary);">最近连接</span>
+                    <span style="font-size: 11px; color: var(--accent-color); cursor: pointer;">管理</span>
+                </div>
+                <div class="device-card">
+                    <div class="device-icon">
+                        <i class="fas fa-desktop"></i>
+                    </div>
+                    <div class="device-info">
+                        <div class="device-name">Audioshare-PC · Windows 11</div>
+                        <div class="device-desc">上次连接：2分钟前 · WiFi 5G</div>
+                    </div>
+                    <div class="status-dot"></div>
+                </div>
+            </div> -->
+
+            <!-- 连接状态 -->
+            <!-- <div class="card">
+                <div style="display: flex; align-items: center; margin-bottom: 12px;">
+                    <span class="status-dot"></span>
+                    <span style="font-size: 12px; color: var(--text-primary);">已连接到 Audioshare-PC</span>
+                </div>
+                <button class="btn btn-danger btn-block">断开连接</button>
+            </div> -->
+
+            <!-- 蓝牙/星闪服务器 -->
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+                    <span style="font-size: 14px; font-weight: 600; color: var(--text-primary);">蓝牙 / 星闪</span>
+                    <span style="font-size: 11px; color: var(--accent-color); cursor: pointer;" onclick="refreshDevices('ble')">
+                        <i class="fas fa-sync-alt refresh-icon" id="refresh-ble"></i> 刷新
+                    </span>
+                </div>
+                <div class="empty-state" id="ble-empty-state">
+                    <i class="fas fa-search"></i>
+                    <div class="empty-title">未发现更多服务器</div>
+                    <div class="empty-desc">确保在同一 WiFi 下并已打开 Audioshare</div>
+                    <button class="btn btn-primary" onclick="startScan('ble')">开始扫描</button>
+                </div>
+                <div class="device-list" id="ble-device-list">
+                    <div class="device-card">
+                        <div class="device-icon">
+                            <i class="fas fa-laptop"></i>
+                        </div>
+                        <div class="device-info">
+                            <div class="device-name">Audioshare-MacBook Pro</div>
+                            <div class="device-desc">蓝牙连接 · 信号良好 · 码率 320kbps</div>
+                        </div>
+                         <button class="btn btn-primary" style="padding: 6px 12px; font-size: 11px;">连接</button>
+                        <div class="status-dot"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- WiFi 服务器 -->
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+                    <span style="font-size: 14px; font-weight: 600; color: var(--text-primary);">WiFi 服务器</span>
+                    <span style="font-size: 11px; color: var(--accent-color); cursor: pointer;" onclick="refreshDevices('wifi')">
+                        <i class="fas fa-sync-alt refresh-icon" id="refresh-wifi"></i> 刷新
+                    </span>
+                </div>
+                <div class="empty-state" id="wifi-empty-state">
+                    <i class="fas fa-wifi"></i>
+                    <div class="empty-title">未发现更多服务器</div>
+                    <div class="empty-desc">确保在同一 WiFi 下并已打开 Audioshare</div>
+                    <button class="btn btn-primary" onclick="startScan('wifi')">开始扫描</button>
+                </div>
+                <div class="device-list" id="wifi-device-list">
+                    <div class="device-card">
+                        <div class="device-icon" style="background: linear-gradient(135deg, #F59E0B 0%, #EF4444 100%);">
+                            <i class="fas fa-wifi"></i>
+                        </div>
+                        <div class="device-info">
+                            <div class="device-name">Audioshare-PC-Office</div>
+                            <div class="device-desc">WiFi 连接 · 信号良好 · 码率 256kbps</div>
+                        </div>
+                        <div class="status-dot"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 服务器页面 -->
+    <div id="page-server" class="page">
+        <div class="page-container">
+            <h1 class="page-title">服务器</h1>
+            <p class="page-subtitle">音频从此设备发送</p>
+
+            <!-- 顶部提示卡片 -->
+            <div class="hint-card">
+                <div class="hint-icon" style="background: linear-gradient(135deg, #0A59F7 0%, #38BDF8 100%);">↑</div>
+                <div style="flex: 1;">
+                    <div style="font-size: 12px; color: var(--text-secondary);">音频从此设备发送</div>
+                    <div style="font-size: 11px; color: var(--text-tertiary);">将本机作为服务器，向其他手机或电脑实时推送音频流。</div>
+                </div>
+                <button class="btn btn-primary">快速开始</button>
+            </div>
+
+            <!-- 音源选择 -->
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+                    <span style="font-size: 14px; font-weight: 600; color: var(--text-primary);">音源选择</span>
+                    <span style="font-size: 11px; color: var(--text-tertiary);">当前：麦克风</span>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <div class="audio-source-card active" onclick="selectAudioSource(this, 'file')">
+                        <i class="fas fa-file-audio"></i>
+                        <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">打开文件</div>
+                    </div>
+                    <div class="audio-source-card" onclick="selectAudioSource(this, 'app')">
+                        <i class="fas fa-window-maximize"></i>
+                        <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">应用程序</div>
+                    </div>
+                    <div class="audio-source-card" onclick="selectAudioSource(this, 'mic')">
+                        <i class="fas fa-microphone"></i>
+                        <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">麦克风</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 音频配置 -->
+            <div class="card">
+                <div style="font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 12px;">音频配置</div>
+                <div class="setting-row">
+                    <span class="setting-label">默认解码方式</span>
+                    <span class="setting-value">AAC 低延迟</span>
+                    <span style="font-size: 16px; color: var(--text-secondary);">›</span>
+                </div>
+                <div class="setting-row">
+                    <span class="setting-label">播放质量</span>
+                    <span class="setting-value">高质量</span>
+                    <span style="font-size: 16px; color: var(--text-secondary);">›</span>
+                </div>
+                <div class="setting-row">
+                    <span class="setting-label">个性化均衡器</span>
+                    <span class="setting-value">自定义</span>
+                    <span style="font-size: 16px; color: var(--text-secondary);">›</span>
+                </div>
+            </div>
+
+            <!-- 服务器控制 -->
+            <button class="btn btn-success btn-block" id="start-server-btn" style="margin-top: 12px; font-size: 14px; font-weight: 600;" onclick="toggleServer()">
+                <i class="fas fa-play"></i> 启动服务器
+            </button>
+
+            <!-- 连接状态与设备列表 -->
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+                    <div style="display: flex; align-items: center;">
+                        <span class="status-dot status-offline" id="server-status-dot"></span>
+                        <span style="font-size: 12px; color: var(--text-primary);" id="server-status-text">服务器未启动</span>
+                    </div>
+                    <button class="btn" id="refresh-server-btn" onclick="refreshServerDevices()">刷新设备</button>
+                </div>
+                <div class="connected-device">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                        <span style="font-size: 13px; font-weight: 500; color: var(--text-primary);">蓝牙 / 星闪</span>
+                    </div>
+                    <div class="empty-state" id="server-ble-empty" style="padding: 24px 16px; margin-bottom: 8px;">
+                        <i class="fas fa-search" style="font-size: 32px;"></i>
+                        <div class="empty-title" style="margin-top: 8px;">无设备</div>
+                    </div>
+                    <div class="device-list" id="server-ble-list">
+                        <div class="device-card">
+                            <div class="device-icon">
+                                <i class="fas fa-mobile-alt"></i>
+                            </div>
+                            <div class="device-info">
+                                <div class="device-name">iPhone 15 Pro</div>
+                                <div class="device-desc">信号良好 · 码率 256kbps</div>
+                            </div>
+                            <button class="btn btn-primary">连接</button>
+                        </div>
+                        <div class="device-card" style="margin-bottom: 0;">
+                            <div class="device-icon">
+                                <i class="fas fa-tablet-alt"></i>
+                            </div>
+                            <div class="device-info">
+                                <div class="device-name">iPad Pro</div>
+                                <div class="device-desc">信号良好 · 码率 320kbps</div>
+                            </div>
+                            <button class="btn btn-primary">连接</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="connected-device">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                        <span style="font-size: 13px; font-weight: 500; color: var(--text-primary);">WiFi 服务器</span>
+                    </div>
+                    <div class="empty-state" id="server-wifi-empty" style="padding: 24px 16px; margin-bottom: 8px;">
+                        <i class="fas fa-wifi" style="font-size: 32px;"></i>
+                        <div class="empty-title" style="margin-top: 8px;">无设备</div>
+                    </div>
+                    <div class="device-list" id="server-wifi-list">
+                        <div class="device-card" style="margin-bottom: 0;">
+                            <div class="device-icon" style="background: linear-gradient(135deg, #F59E0B 0%, #EF4444 100%);">
+                                <i class="fas fa-wifi"></i>
+                            </div>
+                            <div class="device-info">
+                                <div class="device-name">Audioshare-PC-Office</div>
+                                <div class="device-desc">WiFi 连接 · 信号良好 · 码率 256kbps</div>
+                            </div>
+                            <button class="btn btn-primary">连接</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 我的页面 -->
+    <div id="page-me" class="page">
+        <div class="page-container">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <div>
+                    <h1 class="page-title">我的</h1>
+                    <p class="page-subtitle">管理账号 · 设备与帮助</p>
+                </div>
+                <button class="btn">未登录</button>
+            </div>
+
+            <!-- 功能入口 -->
+            <div class="card">
+                <div class="function-item" style="cursor: pointer;">
+                    <div class="function-icon">
+                        <i class="fas fa-mobile-alt"></i>
+                    </div>
+                    <div style="flex: 1;">
+                        <div class="device-name">设备名称</div>
+                        <div class="device-desc">Audioshare-Phone · 可在局域网中看到</div>
+                    </div>
+                    <span style="font-size: 16px; color: var(--text-secondary);">›</span>
+                </div>
+                <div class="function-item">
+                    <div class="function-icon" style="background: linear-gradient(135deg, #059669 0%, #22C55E 100%);">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <div style="flex: 1;">
+                        <div class="device-name">权限检查</div>
+                        <div class="device-desc">麦克风 · 局域网 · 蓝牙 · 通知</div>
+                    </div>
+                    <span style="font-size: 11px; color: var(--success-color);">正常</span>
+                </div>
+                <div class="function-item" style="cursor: pointer;">
+                    <div class="function-icon" style="background: linear-gradient(135deg, #F59E0B 0%, #EF4444 100%);">
+                        <i class="fas fa-info-circle"></i>
+                    </div>
+                    <div style="flex: 1;">
+                        <div class="device-name">教程 / 论坛 / 反馈</div>
+                        <div class="device-desc">快速上手 · 社区经验 · 提交问题与建议</div>
+                    </div>
+                    <span style="font-size: 16px; color: var(--text-secondary);">›</span>
+                </div>
+                <div class="function-item" style="cursor: pointer;">
+                    <div class="function-icon" style="background: linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%);">
+                        <i class="fas fa-link"></i>
+                    </div>
+                    <div style="flex: 1;">
+                        <div class="device-name">关于 Audioshare</div>
+                        <div class="device-desc">版本 1.0.0 · 实验性低延迟音频联机</div>
+                    </div>
+                    <span style="font-size: 16px; color: var(--text-secondary);">›</span>
+                </div>
+            </div>
+
+            <!-- 设置按钮 -->
+            <button class="btn btn-block" style="margin-top: 12px; font-size: 14px; font-weight: 600;" onclick="showSettingsActionSheet()">
+                <i class="fas fa-cog"></i> 设置
+            </button>
+        </div>
+    </div>
+
+    <!-- 设置页面 -->
+    <div id="page-setting" class="page">
+        <div class="page-container">
+            <div style="display: flex; align-items: center; margin-bottom: 20px;">
+                <button onclick="showPage('me')" style="border: none; background: none; font-size: 20px; color: var(--text-primary); cursor: pointer; margin-right: 12px;">‹</button>
+                <div>
+                    <h1 class="page-title">设置</h1>
+                    <p class="page-subtitle">系统与功能配置</p>
+                </div>
+            </div>
+
+            <!-- 账户与音质 -->
+            <div class="card">
+                <div style="font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px;">账户与音质</div>
+                <div class="setting-row">
+                    <span class="setting-label">账户登录</span>
+                    <span class="setting-value">未登录</span>
+                    <span style="font-size: 16px; color: var(--text-secondary);">›</span>
+                </div>
+                <div class="setting-row">
+                    <span class="setting-label">音质选择</span>
+                    <span class="setting-value">平衡：音质 / 延迟</span>
+                    <span style="font-size: 16px; color: var(--text-secondary);">›</span>
+                </div>
+            </div>
+
+            <!-- 服务器 -->
+            <div class="card">
+                <div style="font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px;">服务器</div>
+                <div class="setting-row">
+                    <span class="setting-label">输出通道</span>
+                    <span class="setting-value">系统默认</span>
+                    <span style="font-size: 16px; color: var(--text-secondary);">›</span>
+                </div>
+                <div class="setting-row">
+                    <span class="setting-label">缓冲大小</span>
+                    <span class="setting-value">自动（推荐）</span>
+                    <span style="font-size: 16px; color: var(--text-secondary);">›</span>
+                </div>
+            </div>
+
+            <!-- 播放器 -->
+            <div class="card">
+                <div style="font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px;">播放器</div>
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0;">
+                    <span class="setting-label">独占音质</span>
+                    <div class="toggle-switch active" onclick="this.classList.toggle('active')"></div>
+                </div>
+            </div>
+
+            <!-- 其他 -->
+            <div class="card">
+                <div style="font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px;">其他</div>
+                <div class="setting-row">
+                    <span class="setting-label">插件</span>
+                    <span class="setting-value">暂无插件</span>
+                    <span style="font-size: 16px; color: var(--text-secondary);">›</span>
+                </div>
+                <div class="setting-row">
+                    <span class="setting-label">语言</span>
+                    <span class="setting-value">简体中文</span>
+                    <span style="font-size: 16px; color: var(--text-secondary);">›</span>
+                </div>
+                <div class="setting-row" style="cursor: pointer;" onclick="showThemeActionSheet()">
+                    <span class="setting-label">主题</span>
+                    <span class="setting-value" id="theme-value">浅色</span>
+                    <span style="font-size: 16px; color: var(--text-secondary);">›</span>
+                </div>
+                <div class="setting-row">
+                    <span class="setting-label">隐私协议</span>
+                    <span class="setting-value">查看详情</span>
+                    <span style="font-size: 16px; color: var(--text-secondary);">›</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 底部 TabBar -->
+    <div class="tabbar">
+        <div class="tabbar-inner">
+            <button class="tab-item active" data-page="player" onclick="showPage('player')">
+                <i class="fas fa-music tab-icon"></i>
+                <span class="tab-label">播放器</span>
+            </button>
+            <button class="tab-item" data-page="server" onclick="showPage('server')">
+                <i class="fas fa-upload tab-icon"></i>
+                <span class="tab-label">服务器</span>
+            </button>
+            <button class="tab-item" data-page="me" onclick="showPage('me')">
+                <i class="fas fa-user tab-icon"></i>
+                <span class="tab-label">我的</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- 设置 ActionSheet -->
+    <div class="action-sheet-overlay" id="settings-overlay" onclick="hideSettingsActionSheet()">
+        <div class="action-sheet" id="settings-sheet" style="max-height: 60vh; overflow-y: auto;">
+            <div class="action-sheet-title">系统与功能配置</div>
+            
+            <div style="padding: 8px 16px;">
+                <span style="font-size: 11px; font-weight: 600; color: var(--text-tertiary);">账户与音质</span>
+            </div>
+            <div class="action-item" style="padding: 10px 16px;" onclick="hideSettingsActionSheet(); alert('账户登录功能')">
+                <span style="flex: 1;">账户登录</span>
+                <span style="font-size: 12px; color: var(--text-secondary); margin-right: 8px;">未登录</span>
+            </div>
+            <div class="action-item" style="padding: 10px 16px;" onclick="hideSettingsActionSheet(); alert('音质选择功能')">
+                <span style="flex: 1;">音质选择</span>
+                <span style="font-size: 12px; color: var(--text-secondary); margin-right: 8px;">平衡：音质 / 延迟</span>
+                <span style="font-size: 14px; color: var(--text-secondary);">›</span>
+            </div>
+            
+            <div style="padding: 8px 16px; border-top: 8px solid var(--border-color);">
+                <span style="font-size: 11px; font-weight: 600; color: var(--text-tertiary);">服务器</span>
+            </div>
+            <div class="action-item" style="padding: 10px 16px;" onclick="hideSettingsActionSheet(); alert('输出通道功能')">
+                <span style="flex: 1;">输出通道</span>
+                <span style="font-size: 12px; color: var(--text-secondary); margin-right: 8px;">系统默认</span>
+                <span style="font-size: 14px; color: var(--text-secondary);">›</span>
+            </div>
+            <div class="action-item" style="padding: 10px 16px;" onclick="hideSettingsActionSheet(); alert('缓冲大小功能')">
+                <span style="flex: 1;">缓冲大小</span>
+                <span style="font-size: 12px; color: var(--text-secondary); margin-right: 8px;">自动（推荐）</span>
+                <span style="font-size: 14px; color: var(--text-secondary);">›</span>
+            </div>
+            
+            <div style="padding: 8px 16px; border-top: 8px solid var(--border-color);">
+                <span style="font-size: 11px; font-weight: 600; color: var(--text-tertiary);">播放器</span>
+            </div>
+            <div class="action-item" style="padding: 10px 16px; justify-content: space-between; align-items: center;" onclick="event.stopPropagation();">
+                <span style="flex: 1;">独占音质</span>
+                <div class="toggle-switch active" onclick="this.classList.toggle('active'); event.stopPropagation();"></div>
+            </div>
+            
+            <div style="padding: 8px 16px; border-top: 8px solid var(--border-color);">
+                <span style="font-size: 11px; font-weight: 600; color: var(--text-tertiary);">其他</span>
+            </div>
+            <div class="action-item" style="padding: 10px 16px;" onclick="hideSettingsActionSheet(); alert('插件管理功能')">
+                <span style="flex: 1;">插件</span>
+                <span style="font-size: 12px; color: var(--text-secondary); margin-right: 8px;">暂无插件</span>
+                <span style="font-size: 14px; color: var(--text-secondary);">›</span>
+            </div>
+            <div class="action-item" style="padding: 10px 16px;" onclick="hideSettingsActionSheet(); alert('语言选择功能')">
+                <span style="flex: 1;">语言</span>
+                <span style="font-size: 12px; color: var(--text-secondary); margin-right: 8px;">简体中文</span>
+                <span style="font-size: 14px; color: var(--text-secondary);">›</span>
+            </div>
+            <div class="action-item" style="padding: 10px 16px;" onclick="showThemeActionSheet()">
+                <span style="flex: 1;">主题</span>
+                <span style="font-size: 12px; color: var(--text-secondary); margin-right: 8px;" id="theme-value-inline">浅色</span>
+                <span style="font-size: 14px; color: var(--text-secondary);">›</span>
+            </div>
+            <div class="action-item" style="padding: 10px 16px;" onclick="hideSettingsActionSheet(); alert('隐私协议功能')">
+                <span style="flex: 1;">隐私协议</span>
+                <span style="font-size: 12px; color: var(--text-secondary); margin-right: 8px;">查看详情</span>
+                <span style="font-size: 14px; color: var(--text-secondary);">›</span>
+            </div>
+            
+            <div class="action-sheet-cancel" onclick="hideSettingsActionSheet()">
+                取消
+            </div>
+        </div>
+    </div>
+
+    <!-- 主题选择 ActionSheet -->
+    <div class="action-sheet-overlay" id="theme-overlay" onclick="hideThemeActionSheet()">
+        <div class="action-sheet" id="theme-sheet">
+            <div class="action-sheet-title">选择主题</div>
+            <div class="action-item" onclick="setTheme('light')">
+                <span style="font-size: 16px; margin-right: 12px;">🌞</span>
+                <span style="flex: 1;">浅色模式</span>
+            </div>
+            <div class="action-item" onclick="setTheme('dark')">
+                <span style="font-size: 16px; margin-right: 12px;">🌙</span>
+                <span style="flex: 1;">深色模式</span>
+            </div>
+            <div class="action-item" onclick="setTheme('auto')">
+                <span style="font-size: 16px; margin-right: 12px;">🌓</span>
+                <span style="flex: 1;">自动跟随系统</span>
+            </div>
+            <div class="action-sheet-cancel" onclick="hideThemeActionSheet()">
+                取消
+            </div>
+        </div>
+    </div>
+
+    <!-- 加载进度遮罩层 -->
+    <div class="loading-overlay" id="loading-overlay">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <div class="loading-text" id="loading-text">正在扫描设备...</div>
+            <div class="loading-progress" id="loading-progress">请稍候</div>
+        </div>
+    </div>
+
+    <script>
+        // 全局状态
+        let isServerRunning = false;
+
+        // 显示加载进度
+        function showLoading(text, progress) {
+            const overlay = document.getElementById('loading-overlay');
+            const loadingText = document.getElementById('loading-text');
+            const loadingProgress = document.getElementById('loading-progress');
+            
+            if (text) loadingText.textContent = text;
+            if (progress) loadingProgress.textContent = progress;
+            
+            overlay.classList.add('active');
+        }
+
+        // 隐藏加载进度
+        function hideLoading() {
+            const overlay = document.getElementById('loading-overlay');
+            overlay.classList.remove('active');
+        }
+
+        // 开始扫描
+        function startScan(type) {
+            const scanText = type === 'ble' ? '正在扫描蓝牙设备...' : '正在扫描WiFi设备...';
+            showLoading(scanText, '请稍候');
+            
+            // 模拟扫描过程
+            setTimeout(() => {
+                hideLoading();
+                
+                // 显示设备列表
+                const emptyState = document.getElementById(`${type}-empty-state`);
+                const deviceList = document.getElementById(`${type}-device-list`);
+                
+                if (emptyState) emptyState.style.display = 'none';
+                if (deviceList) {
+                    deviceList.classList.add('active');
+                    deviceList.style.display = 'block';
+                }
+            }, 2000);
+        }
+
+        // 切换服务器状态
+        function toggleServer() {
+            const btn = document.getElementById('start-server-btn');
+            const statusDot = document.getElementById('server-status-dot');
+            const statusText = document.getElementById('server-status-text');
+            
+            if (!isServerRunning) {
+                // 启动服务器
+                showLoading('正在启动服务器...', '请稍候');
+                
+                setTimeout(() => {
+                    hideLoading();
+                    isServerRunning = true;
+                    
+                    // 更新按钮
+                    btn.innerHTML = '<i class="fas fa-stop"></i> 停止服务器';
+                    btn.classList.remove('btn-success');
+                    btn.classList.add('btn-danger');
+                    
+                    // 更新状态
+                    statusDot.classList.remove('status-offline');
+                    statusText.textContent = '服务已启动';
+                    
+                    // 初始状态：显示"无设备"
+                    document.getElementById('server-ble-empty').style.display = 'block';
+                    document.getElementById('server-ble-list').style.display = 'none';
+                    document.getElementById('server-wifi-empty').style.display = 'block';
+                    document.getElementById('server-wifi-list').style.display = 'none';
+                }, 1500);
+            } else {
+                // 停止服务器
+                showLoading('正在停止服务器...', '请稍候');
+                
+                setTimeout(() => {
+                    hideLoading();
+                    isServerRunning = false;
+                    
+                    // 更新按钮
+                    btn.innerHTML = '<i class="fas fa-play"></i> 启动服务器';
+                    btn.classList.remove('btn-danger');
+                    btn.classList.add('btn-success');
+                    
+                    // 更新状态
+                    statusDot.classList.add('status-offline');
+                    statusText.textContent = '服务器未启动';
+                }, 1000);
+            }
+        }
+
+        // 刷新服务器设备
+        function refreshServerDevices() {
+            if (!isServerRunning) {
+                alert('请先启动服务器');
+                return;
+            }
+            
+            showLoading('正在扫描设备...', '请稍候');
+            
+            // 模拟扫描过程
+            setTimeout(() => {
+                hideLoading();
+                
+                // 切换到设备列表
+                document.getElementById('server-ble-empty').style.display = 'none';
+                document.getElementById('server-ble-list').style.display = 'block';
+                document.getElementById('server-wifi-empty').style.display = 'none';
+                document.getElementById('server-wifi-list').style.display = 'block';
+            }, 2000);
+        }
+
+        // 页面切换
+        function showPage(pageName) {
+            // 隐藏所有 ActionSheet
+            hideAllActionSheets();
+            
+            // 隐藏所有页面
+            document.querySelectorAll('.page').forEach(page => {
+                page.classList.remove('active');
+            });
+            
+            // 显示目标页面
+            document.getElementById('page-' + pageName).classList.add('active');
+            
+            // 更新 Tab 状态
+            document.querySelectorAll('.tab-item').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            const targetTab = document.querySelector(`.tab-item[data-page="${pageName}"]`);
+            if (targetTab) {
+                targetTab.classList.add('active');
+            }
+        }
+
+        // 显示设置 ActionSheet
+        function showSettingsActionSheet() {
+            const overlay = document.getElementById('settings-overlay');
+            const sheet = document.getElementById('settings-sheet');
+            overlay.classList.add('active');
+            setTimeout(() => {
+                sheet.classList.add('active');
+            }, 10);
+        }
+
+        // 隐藏设置 ActionSheet
+        function hideSettingsActionSheet() {
+            const overlay = document.getElementById('settings-overlay');
+            const sheet = document.getElementById('settings-sheet');
+            sheet.classList.remove('active');
+            setTimeout(() => {
+                overlay.classList.remove('active');
+            }, 300);
+        }
+
+        // 显示主题选择 ActionSheet
+        function showThemeActionSheet(event) {
+            if (event) {
+                event.stopPropagation();
+            }
+            const overlay = document.getElementById('theme-overlay');
+            const sheet = document.getElementById('theme-sheet');
+            overlay.classList.add('active');
+            setTimeout(() => {
+                sheet.classList.add('active');
+            }, 10);
+        }
+
+        // 隐藏主题选择 ActionSheet
+        function hideThemeActionSheet() {
+            const overlay = document.getElementById('theme-overlay');
+            const sheet = document.getElementById('theme-sheet');
+            sheet.classList.remove('active');
+            setTimeout(() => {
+                overlay.classList.remove('active');
+            }, 300);
+        }
+
+        // 隐藏所有 ActionSheet
+        function hideAllActionSheets() {
+            hideSettingsActionSheet();
+            hideThemeActionSheet();
+        }
+
+        // 设置主题
+        function setTheme(themeType) {
+            let isDarkMode = false;
+            let themeText = '浅色';
+            
+            if (themeType === 'dark') {
+                isDarkMode = true;
+                themeText = '深色';
+            } else if (themeType === 'auto') {
+                // 自动跟随系统
+                isDarkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+                themeText = '自动';
+            }
+            
+            // 设置 CSS 变量
+            document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
+            
+            // 更新主题值显示
+            const themeValue = document.getElementById('theme-value');
+            const themeValueInline = document.getElementById('theme-value-inline');
+            if (themeValue) {
+                themeValue.textContent = themeText;
+            }
+            if (themeValueInline) {
+                themeValueInline.textContent = isDarkMode ? '深色' : '浅色';
+            }
+            
+            // 隐藏主题 ActionSheet
+            hideThemeActionSheet();
+        }
+
+        // 刷新设备列表
+        function refreshDevices(type) {
+            const refreshIcon = document.getElementById(`refresh-${type}`);
+            if (refreshIcon) {
+                refreshIcon.classList.add('spinning');
+                
+                // 模拟刷新
+                setTimeout(() => {
+                    refreshIcon.classList.remove('spinning');
+                    alert('刷新完成，未发现新设备');
+                }, 2000);
+            }
+        }
+
+        // 选择音源
+        function selectAudioSource(element, type) {
+            document.querySelectorAll('.audio-source-card').forEach(card => {
+                card.classList.remove('active');
+            });
+            element.classList.add('active');
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            // 检测系统主题偏好
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            }
+        });
+    </script>
+</body>
+</html>
