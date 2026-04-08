@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>动态地缘政治博弈图 (带时间轴联动)</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body { margin: 0; background-color: #1a1a1a; font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; overflow: hidden; color: #fff; }
+        #chart-container { width: 100vw; height: 100vh; }
+        
+        /* 标题样式 */
+        .title-box { position: absolute; top: 20px; left: 20px; background: rgba(0, 0, 0, 0.7); padding: 15px; border-radius: 8px; border-left: 4px solid #f39c12; pointer-events: none; z-index: 10; }
+        .title-box h2 { margin: 0; font-size: 18px; color: #f39c12; }
+
+        /* 时间轴容器 */
+        .timeline-container {
+            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+            width: 90%; max-width: 1000px; display: flex; justify-content: space-between;
+            align-items: center; background: rgba(0, 0, 0, 0.8); padding: 20px;
+            border-radius: 50px; border: 1px solid #444; z-index: 100;
+        }
+        .timeline-item {
+            flex: 1; text-align: center; cursor: pointer; position: relative; transition: 0.3s;
+            padding: 10px 5px; color: #888;
+        }
+        .timeline-item:hover { color: #fff; }
+        .timeline-item.active { color: #f39c12; font-weight: bold; transform: scale(1.1); }
+        .timeline-item::after {
+            content: ''; position: absolute; bottom: -5px; left: 50%; transform: translateX(-50%);
+            width: 8px; height: 8px; background: #444; border-radius: 50%;
+        }
+        .timeline-item.active::after { background: #f39c12; box-shadow: 0 0 10px #f39c12; }
+        .date { font-size: 12px; display: block; margin-bottom: 5px; }
+        .event-desc { font-size: 11px; line-height: 1.2; }
+
+        /* 图表元素样式 */
+        .node-label { font-size: 14px; pointer-events: none; fill: #fff; }
+        .link { stroke: #555; stroke-opacity: 0.4; stroke-width: 1.5px; }
+        .link-label { font-size: 10px; fill: #aaa; pointer-events: none; opacity: 0; transition: 0.3s; }
+        circle { cursor: pointer; transition: stroke-width 0.3s; }
+    </style>
+</head>
+<body>
+
+    <div class="title-box">
+        <h2>中东局势动态博弈 (3.30 - 4.7)</h2>
+        <p style="margin:5px 0 0; font-size:12px; color:#aaa;">点击下方时间轴查看局势演变</p>
+    </div>
+
+    <div class="timeline-container" id="timeline">
+        <div class="timeline-item" onclick="highlightStep(0, this)">
+            <span class="date">3月30日</span>
+            <span class="event-desc">海峡收费案<br>伊朗升级博弈</span>
+        </div>
+        <div class="timeline-item" onclick="highlightStep(1, this)">
+            <span class="date">4月1日</span>
+            <span class="event-desc">美以联合打击<br>涉及海湾美军</span>
+        </div>
+        <div class="timeline-item" onclick="highlightStep(2, this)">
+            <span class="date">4月6日</span>
+            <span class="event-desc">美国通牒<br>战争临界点</span>
+        </div>
+        <div class="timeline-item" onclick="highlightStep(3, this)">
+            <span class="date">4月7日</span>
+            <span class="event-desc">空袭能源枢纽<br>局势极度紧张</span>
+        </div>
+        <div class="timeline-item" onclick="highlightStep(4, this)">
+            <span class="date">4月7日晚</span>
+            <span class="event-desc">停火协议<br>巴基斯坦斡旋</span>
+        </div>
+    </div>
+
+    <div id="chart-container"></div>
+
+    <script>
+        const data = {
+            nodes: [
+                { id: "霍尔木兹海峡", color: "#f39c12", radius: 45 },
+                { id: "伊朗", color: "#e74c3c", radius: 35 },
+                { id: "美国", color: "#3498db", radius: 35 },
+                { id: "以色列", color: "#2980b9", radius: 25 },
+                { id: "海湾国家", color: "#2ecc71", radius: 30 },
+                { id: "巴基斯坦", color: "#9b59b6", radius: 28 }
+            ],
+            links: [
+                { source: "伊朗", target: "霍尔木兹海峡", label: "拟征收通行费", step: 0 },
+                { source: "美国", target: "伊朗", label: "针对性空袭", step: 1 },
+                { source: "以色列", target: "伊朗", label: "打击能源设施", step: 1 },
+                { source: "伊朗", target: "海湾国家", label: "打击美军基地", step: 1 },
+                { source: "美国", target: "霍尔木兹海峡", label: "最后通牒：重开海峡", step: 2 },
+                { source: "美国", target: "伊朗", label: "打击哈尔克岛枢纽", step: 3 },
+                { source: "巴基斯坦", target: "伊朗", label: "调解降温", step: 4 },
+                { source: "巴基斯坦", target: "美国", label: "调解降温", step: 4 },
+                { source: "伊朗", target: "美国", label: "达成两周停火", step: 4 }
+            ]
+        };
+
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+
+        const svg = d3.select("#chart-container").append("svg")
+            .attr("width", width).attr("height", height);
+
+        const simulation = d3.forceSimulation(data.nodes)
+            .force("link", d3.forceLink(data.links).id(d => d.id).distance(220))
+            .force("charge", d3.forceManyBody().strength(-2000))
+            .force("center", d3.forceCenter(width / 2, height / 2 - 50));
+
+        const link = svg.append("g").selectAll("line")
+            .data(data.links).enter().append("line")
+            .attr("class", "link");
+
+        const linkText = svg.append("g").selectAll("text")
+            .data(data.links).enter().append("text")
+            .attr("class", "link-label")
+            .attr("text-anchor", "middle")
+            .text(d => d.label);
+
+        const node = svg.append("g").selectAll("g")
+            .data(data.nodes).enter().append("g")
+            .on("click", (e, d) => focusOnNode(d.id))
+            .call(d3.drag().on("start", dragstarted).on("drag", dragged).on("end", dragended));
+
+        node.append("circle")
+            .attr("r", d => d.radius)
+            .attr("fill", d => d.color)
+            .attr("stroke", "#fff").attr("stroke-width", 0);
+
+        node.append("text")
+            .attr("class", "node-label")
+            .attr("text-anchor", "middle")
+            .attr("dy", 5).text(d => d.id);
+
+        simulation.on("tick", () => {
+            link.attr("x1", d => d.source.x).attr("y1", d => d.source.y)
+                .attr("x2", d => d.target.x).attr("y2", d => d.target.y);
+            linkText.attr("x", d => (d.source.x + d.target.x) / 2)
+                    .attr("y", d => (d.source.y + d.target.y) / 2 - 10);
+            node.attr("transform", d => `translate(${d.x},${d.y})`);
+        });
+
+        // 时间轴点击逻辑
+        function highlightStep(stepIndex, el) {
+            // UI反馈
+            d3.selectAll(".timeline-item").classed("active", false);
+            d3.select(el).classed("active", true);
+
+            // 获取该步骤涉及的所有节点
+            const activeNodes = new Set();
+            data.links.forEach(l => {
+                if (l.step === stepIndex) {
+                    activeNodes.add(l.source.id);
+                    activeNodes.add(l.target.id);
+                }
+            });
+
+            // 视觉强调
+            node.transition().duration(500)
+                .style("opacity", d => activeNodes.has(d.id) ? 1 : 0.2)
+                .select("circle").attr("stroke-width", d => activeNodes.has(d.id) ? 5 : 0);
+
+            link.transition().duration(500)
+                .style("opacity", d => d.step === stepIndex ? 1 : 0.1)
+                .style("stroke", d => d.step === stepIndex ? "#f39c12" : "#555")
+                .style("stroke-width", d => d.step === stepIndex ? 3 : 1.5);
+
+            linkText.transition().duration(500)
+                .style("opacity", d => d.step === stepIndex ? 1 : 0);
+
+            // 如果节点不活跃，稍微推开，活跃节点向中心靠拢
+            simulation.alpha(0.3).restart();
+        }
+
+        // 点击节点强调
+        function focusOnNode(nodeId) {
+            const connected = new Set([nodeId]);
+            data.links.forEach(l => {
+                if (l.source.id === nodeId) connected.add(l.target.id);
+                if (l.target.id === nodeId) connected.add(l.source.id);
+            });
+
+            node.transition().style("opacity", d => connected.has(d.id) ? 1 : 0.1);
+            link.transition().style("opacity", d => (d.source.id === nodeId || d.target.id === nodeId) ? 1 : 0.1);
+            linkText.transition().style("opacity", d => (d.source.id === nodeId || d.target.id === nodeId) ? 1 : 0);
+        }
+
+        // 基础拖拽函数
+        function dragstarted(event, d) { if (!event.active) simulation.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; }
+        function dragged(event, d) { d.fx = event.x; d.fy = event.y; }
+        function dragended(event, d) { if (!event.active) simulation.alphaTarget(0); d.fx = null; d.fy = null; }
+
+        // 点击空白处复原
+        svg.on("click", (e) => {
+            if (e.target.tagName === "svg") {
+                node.transition().style("opacity", 1).select("circle").attr("stroke-width", 0);
+                link.transition().style("opacity", 0.4).style("stroke", "#555").style("stroke-width", 1.5);
+                linkText.transition().style("opacity", 0);
+                d3.selectAll(".timeline-item").classed("active", false);
+            }
+        });
+    </script>
+</body>
+</html>
